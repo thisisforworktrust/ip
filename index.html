@@ -2,173 +2,179 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Location Share</title>
+<title>Location Sender</title>
 <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
 
 <style>
-body {
-  margin: 0;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #1e1f22, #2b2d31);
-  font-family: "Segoe UI", sans-serif;
-  color: #fff;
+body{
+  margin:0;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#1e1f22;
+  font-family:Segoe UI,sans-serif;
+  color:white;
 }
-
-.card {
-  background: #313338;
-  padding: 30px;
-  width: 380px;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-  text-align: center;
+.card{
+  background:#313338;
+  padding:20px;
+  width:420px;
+  border-radius:14px;
+  text-align:center;
 }
-
-h2 { margin: 0 0 10px; }
-
-.warning {
-  background: #2b2d31;
-  padding: 12px;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  margin-bottom: 15px;
-  color: #faa61a;
+.notice{
+  background:#2b2d31;
+  padding:12px;
+  border-radius:10px;
+  font-size:12px;
+  color:#b5bac1;
+  text-align:left;
+  margin-bottom:10px;
+  max-height:200px;
+  overflow:auto;
 }
-
-button {
-  background: #5865f2;
-  border: none;
-  color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  cursor: pointer;
-  margin-bottom: 15px;
+.status{
+  background:#2b2d31;
+  padding:8px;
+  border-radius:8px;
+  font-size:12px;
+  height:90px;
+  overflow:auto;
+  text-align:left;
 }
-
-button:hover { opacity: 0.9; }
-
-.status {
-  background: #2b2d31;
-  padding: 12px;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  text-align: left;
-  height: 120px;
-  overflow-y: auto;
+button{
+  background:#5865f2;
+  border:none;
+  color:white;
+  padding:8px 12px;
+  border-radius:8px;
+  cursor:pointer;
+  margin-bottom:8px;
 }
-
-.success { color: #23a559; }
-.error { color: #fa777c; }
-.warn { color: #faa61a; }
-
-.spinner {
-  margin: 15px auto 0;
-  width: 26px;
-  height: 26px;
-  border: 3px solid #444;
-  border-top: 3px solid #5865f2;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  display: none;
+label{
+  font-size:12px;
+  display:block;
+  margin-bottom:6px;
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
-
 <body>
-<div class="card">
-  <h2>Share Your Location</h2>
 
-  <div class="warning">
-    This page will send your **exact GPS location** to another connected user.<br><br>
-    Only continue if you understand and agree.
+<div class="card">
+  <h3>Send my location</h3>
+
+  <div class="notice">
+<b>Location Sharing and Privacy Notice</b><br><br>
+This page allows you to voluntarily share your current geographical location with another user through a direct peer-to-peer connection. When you press the “Send location” button and grant your browser permission to access location services, your device will provide latitude, longitude, and an estimated accuracy value. The coordinates are reduced in precision before being transmitted in order to limit unnecessary detail and follow data-minimisation principles.<br><br>
+Your location data is transmitted only for the purpose of delivering it to the recipient identified on this page (“ipsharewithshooym”). The data is sent directly between peers using the PeerJS networking library and is not intentionally stored, logged, or retained by this page after transmission. This page does not build a profile about you, track your movement history, or reuse your location for analytics, advertising, or any secondary purpose.<br><br>
+By checking the consent box and clicking the send button, you confirm that you understand that location data can be sensitive personal information and that the recipient may be able to infer your approximate real-world position. You may cancel or close this page at any time before sending to stop the sharing process. Location access is requested only once per button press and never in the background. Use of this tool is voluntary and intended for testing and personal communication purposes only.
   </div>
 
-  <button id="shareBtn">Share My Location</button>
+  <div style="font-size:12px;margin-bottom:6px;">
+    Recipient: <b>ipsharewithshooym</b>
+  </div>
 
-  <div class="status" id="status"></div>
-  <div class="spinner" id="spinner"></div>
+  <label>
+    <input type="checkbox" id="consent">
+    I have read and agree to the notice above.
+  </label>
+
+  <button id="sendBtn">Send location</button>
+
+  <div class="status" id="log"></div>
 </div>
 
 <script>
-const statusDiv = document.getElementById("status");
-const spinner = document.getElementById("spinner");
-const shareBtn = document.getElementById("shareBtn");
-
 const HOST_ID = "ipsharewithshooym";
-let peer = new Peer();
+
+const logBox = document.getElementById("log");
+const sendBtn = document.getElementById("sendBtn");
+const consent = document.getElementById("consent");
+
+let peer = null;
 let conn = null;
-let sent = false;
 let locationText = "";
+let sent = false;
 
-function log(msg, cls="") {
-  const line = document.createElement("div");
-  if (cls) line.className = cls;
-  line.textContent = msg;
-  statusDiv.appendChild(line);
-  statusDiv.scrollTop = statusDiv.scrollHeight;
+function log(t){
+  const d = document.createElement("div");
+  d.textContent = t;
+  logBox.appendChild(d);
+  logBox.scrollTop = logBox.scrollHeight;
 }
 
-function trySend() {
-  if (conn && conn.open && locationText && !sent) {
-    const messagePacket = {
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2),
-      user: "LocationBot",
-      msg: locationText,
-      type: "text",
-      senderId: peer.id,
-      timestamp: Date.now()
-    };
+function trySend(){
+  if(!conn || !conn.open || !locationText || sent) return;
 
-    conn.send(messagePacket);
-    sent = true;
-    log("Location sent successfully", "warn");
+  const parts = locationText.split("|");
+
+  const packet = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+    user: "LocationBot",
+    msg:
+`📍 Shared Location
+Latitude: ${parts[0]}
+Longitude: ${parts[1]}
+Accuracy: ${parts[2]} m`,
+    type: "text",
+    senderId: peer.id,
+    timestamp: Date.now()
+  };
+
+  conn.send(packet);
+  sent = true;
+  log("Location sent.");
+}
+
+sendBtn.onclick = () => {
+
+  if(!window.isSecureContext){
+    log("This page must be opened using HTTPS.");
+    return;
   }
-}
 
-peer.on("open", id => {
-  log("Connected to network", "success");
+  if(!consent.checked){
+    log("Please read the notice and give consent first.");
+    return;
+  }
 
-  conn = peer.connect(HOST_ID);
+  sent = false;
+  locationText = "";
 
-  conn.on("open", () => {
-    log("Connected to receiver", "success");
-    trySend();
-  });
-
-  conn.on("data", data => {
-    if (data.msg === locationText) {
-      log("Receiver confirmed delivery", "success");
-      spinner.style.display = "none";
-    }
-  });
-
-  conn.on("error", err => log("Connection error: " + err, "error"));
-});
-
-shareBtn.onclick = () => {
-  shareBtn.disabled = true;
-  spinner.style.display = "block";
-  log("Requesting location permission...", "warn");
+  log("Requesting location…");
 
   navigator.geolocation.getCurrentPosition(pos => {
-    locationText =
-`📍 Live Location
-Latitude: ${pos.coords.latitude}
-Longitude: ${pos.coords.longitude}
-Accuracy: ${pos.coords.accuracy} meters`;
 
-    log("Location access granted", "success");
-    trySend();
+    const lat = pos.coords.latitude.toFixed(4);
+    const lon = pos.coords.longitude.toFixed(4);
+    const acc = Math.round(pos.coords.accuracy);
+
+    locationText = lat + "|" + lon + "|" + acc;
+
+    log("Location ready.");
+
+    peer = new Peer();
+
+    peer.on("open", id => {
+      log("Connected as " + id);
+
+      conn = peer.connect(HOST_ID);
+
+      conn.on("open", () => {
+        log("Connected to recipient.");
+        trySend();
+      });
+
+      conn.on("error", e => log("Connection error: " + e));
+    });
+
   }, err => {
-    log("Location error: " + err.message, "error");
-    spinner.style.display = "none";
+    log("Location error: " + err.message);
   });
+
 };
 </script>
+
 </body>
 </html>
