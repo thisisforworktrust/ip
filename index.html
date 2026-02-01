@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Instant Location</title>
+</head>
+<body>
+  <h1>Instant Location</h1>
+  <p>Your current location is being fetched...</p>
+  <div id="locationInfo"></div>
+
+  <script>
+    // Get location instantly using geolocation API
+    navigator.geolocation.getCurrentPosition(
+      function(position) {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
+        const accuracy = position.coords.accuracy;
+
+        document.getElementById('locationInfo').innerHTML = `
+          <strong>Latitude:</strong> ${lat}
+
+          <strong>Longitude:</strong> ${lon}
+
+          <strong>Accuracy:</strong> ${accuracy} meters
+        `;
+      },
+      function(error) {
+        document.getElementById('locationInfo').innerHTML = `
+          <strong>Error:</strong> ${error.message}
+        `;
+      }
+    );
+  </script>
+</body>
+</html>
